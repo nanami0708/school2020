@@ -146,9 +146,10 @@ function init() {
 
 
     const planeGeometry = new THREE.PlaneGeometry(width, height);
+    var randomColor = "rgb(" + (~~(256 * Math.random())) + ", " + (~~(256 * Math.random())) + ", " + (~~(256 * Math.random())) + ")";//色ランダム
 
     const planeMaterial = new THREE.MeshPhongMaterial({
-      color: 0xfffffff, side: THREE.DoubleSide,
+      color: randomColor, side: THREE.DoubleSide,
     });
     var plane = new THREE.Mesh(planeGeometry, planeMaterial);
     plane.position.set(x, y, z);
@@ -162,10 +163,9 @@ function init() {
   generatePlane(-12, 5, 0, 24, 10, new CANNON.Vec3(0, 1, 0))
   generatePlane(0, 12, -12, 24, 24, new CANNON.Vec3(0, 0, 0))
   generatePlane(0, 10, 3, 24, 18, new CANNON.Vec3(1, 0, 0))
-  generatePlane(0, 15, -8, 24, 10, new CANNON.Vec3(0, 0, 0))
+  generatePlane(0, 17, -6, 24, 14, new CANNON.Vec3(0, 0, 0))
   generatePlane(12, 17, -9, 6, 14, new CANNON.Vec3(0, -1, 0))
   generatePlane(-12, 17, -9, 6, 14, new CANNON.Vec3(0, 1, 0))
-
   generatePlane(0, 24, -9, 24, 6, new CANNON.Vec3(1, 0, 0)) //これがでない
 
 
@@ -175,7 +175,7 @@ function init() {
   var boxMat = new CANNON.Material({ restitution: 0, friction: 0 });
 
   const phyBox = new CANNON.Body({ mass: boxMass, shape: boxShape, material: boxMat });  // 箱作成
-  phyBox.position.set(5, 4, 5);                                     // 箱の位置
+  phyBox.position.set(0, 4, 5);                                     // 箱の位置
   world.addBody(phyBox);                                             // ワールドに箱追加
   // カメラを作成
   var camera = new THREE.PerspectiveCamera(35, width / height, 1, 10000);
@@ -236,6 +236,44 @@ function init() {
 
     });
 
+  //glTFの読み込み
+  var loader = new THREE.GLTFLoader();
+
+  loader.load('models/floor_light.gltf', function (data) {
+    var gltf = data;
+    var obj = gltf.scene;
+    obj.position.set(-9.6, 0.1, -9.6)
+    scene.add(obj);
+  });
+
+  // スポットライト光源を作成
+  // new THREE.SpotLight(色, 光の強さ, 距離, 照射角, ボケ具合, 減衰率)
+  const floor_light = new THREE.SpotLight(0xFFFFFF, 4, 30, Math.PI / 4, 10, 0.5);
+  floor_light.position.set(0, 0, 0)
+  scene.add(floor_light);
+
+
+  loader.load('models/straw_light.gltf', function (data) {
+    var gltf = data;
+    var obj = gltf.scene;
+    obj.position.set(0, 1, 8)
+    obj.rotation.set(0, Math.PI / 2, 0)
+    obj.scale.set(0.3, 0.3, 0.3)
+    scene.add(obj);
+  });
+
+  loader.load('models/arrow.gltf', function (data) {
+    var gltf = data;
+    var obj = gltf.scene;
+    obj.position.set(1.5, 0, 8.5)
+    obj.rotation.set(0, Math.PI / 2, 0)
+    obj.scale.set(1, 1, 1)
+    scene.add(obj);
+  });
+
+  //読み込んだシーンが暗いので、明るくする
+  renderer.gammaOutput = true;
+
 
   renderer.setClearColor(0x000000, 1); //影
   renderer.shadowMap.enabled = true;
@@ -244,7 +282,20 @@ function init() {
 
   console.log(phyBox.velocity, phyBox.position)
 
-  let j = 0;
+
+  // postprocessing
+
+  composer = new THREE.EffectComposer(renderer);
+
+  var ssaoPass = new THREE.SSAOPass(scene, camera, width, height);
+  ssaoPass.output = THREE.SSAOPass.OUTPUT.Default;
+  ssaoPass.kernelRadius = 32;
+  ssaoPass.minDistance = 0.0001;
+  ssaoPass.maxDistance = 0.3;
+
+  composer.addPass(ssaoPass);
+
+
   // var fogDepth = 3000;
   // var fogTimeCount = 0;
   animate()
@@ -261,7 +312,9 @@ function init() {
         node.castShadow = true;   // 影をつけるオブジェクト　毎秒呼び出してオブジェクトの読み込みが遅かった場合にも対応
         node.receiveShadow = true;
       }
+
     });
+
 
     // let v = move.getVelocity();
     // controls.getObject().translateX(v.x)
@@ -271,7 +324,7 @@ function init() {
     // cannon.jsからthree.jsにオブジェクトの位置をコピー
     camera.position.copy(phyBox.position);
 
-    console.log(phyBox.velocity)
+    // composer.render();
 
     world.step(1 / 60);//60FPS
     requestAnimationFrame(animate);　//さっきつけた名前をマイフレーム呼び出す
@@ -295,6 +348,9 @@ function init() {
     // カメラのアスペクト比を正す
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+
+    composer.setSize(width, height);
+
   }
 
 }
